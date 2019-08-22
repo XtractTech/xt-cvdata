@@ -1,4 +1,4 @@
-# cv-data
+# xt-cvdata
   
 ## Description
 
@@ -14,8 +14,8 @@ More to come.
 ## Installation
 
 ```{bash}
-git clone https://github.com/XtractTech/cv-data.git
-pip install ./cv-data
+git clone https://github.com/XtractTech/xt-cvdata.git
+pip install ./xt-cvdata
 ```
 
 ## Usage
