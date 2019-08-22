@@ -1,4 +1,4 @@
-# cv-data-utils
+# cv-data
   
 ## Description
 
@@ -13,7 +13,10 @@ More to come.
 
 ## Installation
 
-git clone https://github.com/XtractTech/cv-data-utils.git
+```{bash}
+git clone https://github.com/XtractTech/cv-data.git
+pip install ./cv-data
+```
 
 ## Usage
 
