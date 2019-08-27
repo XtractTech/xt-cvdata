@@ -15,16 +15,23 @@ class COCO(Builder):
 
     base_url = 'http://images.cocodataset.org'
     ann_url = 'annotations/annotations_trainval2017.zip'
-    inst_val_path = 'annotations/instances_val2017.json'
-    inst_train_path = 'annotations/instances_train2017.json'
-    image_paths = {'train': 'train2017', 'val': 'val2017'}
 
-    def __init__(self, source):
+    def __init__(
+        self, source,
+        inst_val_path='annotations/instances_val2017.json',
+        inst_train_path='annotations/instances_train2017.json',
+        image_paths={'train': 'train', 'val': 'val'}
+    ):
         """COCO 2017 dataset api and builder.
         
         Arguments:
             source {str} -- Local location of full dataset. Folder structure should
                 be as shown below.
+        
+        Keyword Arguments:
+            inst_val_path {str} -- Relative path to validation annotations. 
+            inst_train_path {str} -- Relative path to train annotations. 
+            image_paths {dict} -- Dict of relative path to train and val images. 
         
         Notes:
             The COCO dataset directory should have the following structure:
@@ -40,17 +47,16 @@ class COCO(Builder):
                     <image2>.jpg
                     ...
         """
-        self.source = [source]
-        self.source_id = [
-            base64.b64encode(hashlib.md5(self.source[0].encode()).digest()).decode()[:10]
-        ]
-        self.transformations = {}
+
+        self.inst_val_path = inst_val_path
+        self.inst_train_path = inst_train_path
+        self.image_paths = [image_paths]
 
         # Check if annotations already downloaded
         downloaded = False
-        if self.source[0] is not None:
+        if source is not None:
             downloaded = all(
-                os.path.exists(os.path.join(self.source[0], p)) 
+                os.path.exists(os.path.join(source, p)) 
                     for p in [self.inst_val_path, self.inst_train_path]
             )
 
@@ -64,7 +70,7 @@ class COCO(Builder):
                 with ZipFile(zip_path) as zf:
                     zf.extractall(ann_dir)
             else:
-                ann_dir = self.source[0]
+                ann_dir = source
 
             with open(os.path.join(ann_dir, self.inst_val_path)) as jf:
                 instances_val = json.load(jf)
@@ -83,7 +89,7 @@ class COCO(Builder):
         images_val['set'] = 'val'
         self.images = pd.concat((images_train, images_val))
         self.images.set_index('id', inplace=True)
-        self.images['source'] = self.source[0]
+        self.images['source'] = source
 
         annotations_train = pd.DataFrame(instances_train['annotations'])
         annotations_val = pd.DataFrame(instances_val['annotations'])
@@ -94,10 +100,14 @@ class COCO(Builder):
         self.annotations = self.annotations.join(self.categories[['name']], how='inner')
         self.annotations.index.name = 'category_id'
 
+        self.source = [source]
+        self.source_id = [str(abs(hash(source)) % (10 ** 8))]
+        self.transformations = {}
+
         # Make image and annotation IDs unique to this data source
         self.images.index = self.source_id[0] + '_' + self.images.index.astype(str)
         self.images.index.name = 'id'
-        self.annotations.id = self.source_id[0] + '_' + self.annotations.id.astype(str)
         self.annotations.image_id = self.source_id[0] + '_' + self.annotations.image_id.astype(str)
+        self.annotations.id = self.source_id[0] + self.annotations.id.astype(str)
         
         self.analyze()

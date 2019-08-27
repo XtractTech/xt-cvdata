@@ -1,4 +1,4 @@
-import os
+import os, shutil
 import json
 import copy
 import numpy as np
@@ -41,16 +41,21 @@ class Builder(object):
         self.class_distribution = pd.DataFrame({
             'train': class_dist['train'],
             'val': class_dist['val']
-        })
+        }).fillna(0).astype(int)
         self.class_distribution['train_prop'] = self.class_distribution.train / self.class_distribution.train.sum()
         self.class_distribution['val_prop'] = self.class_distribution.val / self.class_distribution.val.sum()
     
-    def subset(self, classes: list):
+    def subset(self, classes: list, keep_intersecting: bool=False):
         """Subset object categories.
         
         Arguments:
             classes {list} -- List of classes to keep. These must all be existing categories in the
                 dataset.
+
+        Keywork Arguments:
+            keep_intersecting {bool} -- Whether or not to keep intersecting classes. When true, first
+                finds all images in which annotations for `classes` exist, then also includes all
+                other annotations found in those images. (default: {False})
         
         Raises:
             Exception: If not all `classes` exist in dataset.
@@ -61,10 +66,16 @@ class Builder(object):
                 raise Exception(f'"{cls}" not found in current dataset')
 
         # Apply subset
-        self.categories = self.categories.loc[self.categories.name.isin(classes)]
-        self.annotations = self.annotations.join(self.categories[[]], how='inner')
-        self.annotations.index.name = 'category_id'
-        self.images = self.images.filter(self.annotations.image_id.unique(), axis=0)
+        subset_categories = self.categories.loc[self.categories.name.isin(classes)]
+        subset_annotations = self.annotations.join(subset_categories[[]], how='inner')
+        subset_annotations.index.name = 'category_id'
+        self.images = self.images.filter(subset_annotations.image_id.unique(), axis=0)
+
+        if not keep_intersecting:
+            self.annotations = subset_annotations
+            self.categories = subset_categories
+        else:
+            self.annotations = self.annotations.join(self.images[[]], on='image_id', how='inner')
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Subset classes', str(classes))
@@ -72,7 +83,8 @@ class Builder(object):
         return self
     
     def rename(self, mapping: dict):
-        """Modify category names.
+        """Modify category names. When mapping multiple existing categories to the same name,
+        they will be combined into a single category.
         
         Arguments:
             mapping {dict} -- Mapping from old to new names. E.g., {'old_name': 'new_name', ...}
@@ -82,11 +94,24 @@ class Builder(object):
             if cls not in self.categories.name.values:
                 raise Exception(f'"{cls}" not found in current dataset')
 
-        map_fn = lambda n: mapping.get(n, n)
-        self.categories.name = self.categories.name.map(map_fn)
+        self.categories['new_name'] = self.categories.name
+        self.categories['new_id'] = self.categories.index
+        for old_name, new_name in mapping.items():
+            mask = self.categories.name == old_name
+            self.categories.loc[mask, 'new_name'] = new_name
+            new_mask = self.categories.new_name == new_name
+            self.categories.loc[new_mask, 'new_id'] = self.categories.loc[new_mask].index.min().astype(int)
+
         self.annotations.drop(columns='name', inplace=True)
-        self.annotations = self.annotations.join(self.categories[['name']], how='inner')
-        self.annotations.index.name = 'category_id'
+        self.annotations = self.annotations.join(self.categories[['new_name', 'new_id']], how='inner')
+        self.annotations.rename(columns={'new_name': 'name', 'new_id': 'category_id'}, inplace=True)
+        self.annotations.set_index('category_id', inplace=True)
+
+        self.categories.name = self.categories.new_name
+        self.categories.set_index('new_id', inplace=True)
+        self.categories.drop(columns='new_name', inplace=True)
+        self.categories.index.name = 'id'
+        self.categories.drop_duplicates(inplace=True)
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Rename classes',  str(mapping))
@@ -147,6 +172,7 @@ class Builder(object):
         self.source_id.extend(other.source_id)
         self.info.extend(copy.deepcopy(other.info))
         self.licenses.extend(copy.deepcopy(other.licenses))
+        self.image_paths.extend(other.image_paths)
 
         # Build new category table, updating category ids in other dataset as needed
         current_max = self.categories.index.max()
@@ -181,7 +207,7 @@ class Builder(object):
 
         return self
     
-    def build(self, target_dir: str):
+    def build(self, target_dir: str, use_symlinks=True):
         """Build defined dataset. Annotation JSON files are exported and images are copied
         using symlinks.
         
@@ -191,6 +217,11 @@ class Builder(object):
         Raises:
             Exception: When target directory is not empty.
         """
+
+        if use_symlinks:
+            cp_fn = os.symlink
+        else:
+            cp_fn = shutil.copy
 
         os.makedirs(target_dir, exist_ok=True)
         if len(os.listdir(target_dir)) > 0:
@@ -223,13 +254,14 @@ class Builder(object):
                 .to_dict(orient='records')
         )
 
-        for i, row in tqdm(self.images.reset_index().iterrows(), desc='Generating symlinks'):
+        for i, row in tqdm(self.images.reset_index().iterrows(), desc='Building dataset'):
             image = row.to_dict()
             src_path = image['file_name']
             dest_path = os.path.join(image['id'].split('_')[0], image['file_name'])
-            os.symlink(
+            cp_fn(
                 os.path.abspath(
-                    os.path.join(image['source'], self.image_paths[image['set']], src_path)
+                    os.path.join(image['source'],
+                    self.image_paths[self.source.index(image['source'])][image['set']], src_path)
                 ),
                 os.path.join(target_dir, image['set'], dest_path)
             )
@@ -244,3 +276,6 @@ class Builder(object):
             json.dump(instances_train, f)
         with open(os.path.join(target_dir, 'annotations/instances_val.json'), 'w') as f:
             json.dump(instances_val, f)
+
+        self.analyze()
+        self.transformations[len(self.transformations)] = ('Build', target_dir)
