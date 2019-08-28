@@ -27,12 +27,12 @@ See specific help on a dataset class using `help`. E.g., `help(xt_cvdata.COCO)`.
 from xt_cvdata import COCO, OpenImages
 
 # Build an object populated with the COCO image list, categories, and annotations
-coco = COCO('./data/COCO_2017')
+coco = COCO('/nasty/data/common/COCO_2017')
 print(coco)
 print(coco.class_distribution)
 
 # Same for Open Images
-oi = OpenImages('./data/open_images_5')
+oi = OpenImages('/nasty/data/common/open_images_v5')
 print(oi)
 print(coco.class_distribution)
 

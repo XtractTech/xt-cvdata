@@ -79,6 +79,7 @@ class COCO(Builder):
         self.annotations.set_index('category_id', inplace=True)
         self.annotations = self.annotations.join(self.categories[['name']], how='inner')
         self.annotations.index.name = 'category_id'
+        self.annotations['ignore'] = False
 
         # Save source in list so that we can append later if datasets are merged
         self.source = [source]

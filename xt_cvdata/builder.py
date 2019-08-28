@@ -52,7 +52,6 @@ class Builder(object):
                 'height',
                 'set',
                 'source',
-                'video',
                 'width'
             ]
         )
@@ -89,19 +88,19 @@ class Builder(object):
 
         # Annotations
         assert all(
-            c in [
+            c in self.annotations.columns for c in [
                 'id', 'image_id', 'name',  'area', 'bbox',
                 'segmentation', 'ignore', 'iscrowd', 'set'
-            ] for c in self.annotations.columns
+            ]
         )
         assert self.annotations.index.name == 'category_id'
 
         # Images
         assert all(
-            c in [
+            c in self.images.columns for c in [
                 'license', 'file_name', 'height', 'set',
-                'source', 'video', 'width'
-            ] for c in self.images.columns
+                'source', 'width'
+            ]
         )
         assert self.images.index.name == 'id'
     
