@@ -50,10 +50,10 @@ This package follows pytorch chaining rules, meaning that methods operating on a
 from xt_cvdata import COCO, OpenImages
 
 (
-    COCO('./data/COCO_2017')
+    COCO('/nasty/data/common/COCO_2017')
         .subset(['person'])
         .merge(
-            OpenImages('./data/open_images_5')
+            OpenImages('/nasty/data/common/COCO_2017')
                 .subset(['Person'])
                 .rename({'Person': 'person})
         )
