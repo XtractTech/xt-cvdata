@@ -63,6 +63,16 @@ from xt_cvdata import COCO, OpenImages
 
 In practice, somewhere between the two approaches will probably be most readable.
 
+The current set of dataset operations are:
+* `analyze`: recalculate dataset statistics (e.g., class distributions, train/val split)
+* `verify_schema`: check if class attributes follow required schema
+* `subset`: remove all but a subset of classes from the dataset
+* `rename`: rename/combine dataset classes
+* `sample`: sample a specified number of images from the train and validation sets
+* `split`: define the proportion of data in the validation set
+* `merge`: merge two datasets together
+* `build`: create the currently defined dataset using either symlinks or by copying images
+
 #### Implementing a new dataset type
 
 New dataset types should inherit from the base `xt_cvdata.Builder` class. See the `Builder`, `COCO` and `OpenImages` classes as a guide. Specifically, the class initializer should define `info`, `licenses`, `categories`, `annotations`, and `images` attributes such that `self.verify_schema()` runs without error. This ensures that all of the methods defined in the `Builder` class will operate correctly on the inheriting class.
