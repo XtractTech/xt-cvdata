@@ -8,10 +8,60 @@ from tqdm import tqdm
 
 class Builder(object):
 
-    def __init__(self):
+    def __init__(self, source=None):
         """Base object for building and modifying object detection and segmentation datasets."""
 
-        raise NotImplementedError
+        # Define required data schema (PK = primary key, FK = foreign key)
+        self.info = [{'description': '', 'url': '', 'version': '', 'year': ''}]
+        self.licenses = pd.DataFrame(
+            columns=[
+                'id', # PK
+                'name',
+                'url',
+                'source'
+            ]
+        )
+        self.categories = pd.DataFrame(
+            columns=[
+                'id', # PK
+                'supercategory',
+                'name'
+            ]
+        )
+        self.categories.set_index('id', inplace=True)
+        self.annotations = pd.DataFrame(
+            columns=[
+                'id', # PK
+                'image_id', # FK
+                'category_id', # FK
+                'name', # FK
+                'area',
+                'bbox',
+                'segmentation',
+                'ignore',
+                'iscrowd',
+                'set'
+            ]
+        )
+        self.annotations.set_index('category_id', inplace=True)
+        self.images = pd.DataFrame(
+            columns=[
+                'id', # PK
+                'license', # FK
+                'file_name',
+                'height',
+                'set',
+                'source',
+                'video',
+                'width'
+            ]
+        )
+        self.images.set_index('id', inplace=True)
+
+        self.source = [source]
+        self.transformations = {}
+
+        self.analyze()
         
     def __str__(self):
         return (
@@ -26,8 +76,40 @@ class Builder(object):
     def __repr__(self):
         return self.__str__()
     
+    def verify_schema(self):
+        """Function to verify schema.
+
+        Use this function to check that attributes in inheriting classes follow the required
+        format.
+        """
+
+        # Categories
+        assert all(c in ['supercategory', 'name'] for c in self.categories.columns)
+        assert self.categories.index.name == 'id'
+
+        # Annotations
+        assert all(
+            c in [
+                'id', 'image_id', 'name',  'area', 'bbox',
+                'segmentation', 'ignore', 'iscrowd', 'set'
+            ] for c in self.annotations.columns
+        )
+        assert self.annotations.index.name == 'category_id'
+
+        # Images
+        assert all(
+            c in [
+                'license', 'file_name', 'height', 'set',
+                'source', 'video', 'width'
+            ] for c in self.images.columns
+        )
+        assert self.images.index.name == 'id'
+    
     def analyze(self):
-        """Compute dataset statistics. This is called each time the dataset object is modified."""
+        """Compute dataset statistics.
+        
+        This should be called each time the dataset object is modified.
+        """
 
         # Get aggregate statistics
         self.num_classes = len(self.categories)
@@ -39,8 +121,8 @@ class Builder(object):
         # Get class-wise statistics
         class_dist = self.annotations.groupby(['set', 'name']).size()
         self.class_distribution = pd.DataFrame({
-            'train': class_dist['train'],
-            'val': class_dist['val']
+            'train': class_dist.loc[class_dist.index == 'train'],
+            'val': class_dist.loc[class_dist.index == 'val']
         }).fillna(0).astype(int)
         self.class_distribution['train_prop'] = self.class_distribution.train / self.class_distribution.train.sum()
         self.class_distribution['val_prop'] = self.class_distribution.val / self.class_distribution.val.sum()
@@ -145,7 +227,33 @@ class Builder(object):
         self.transformations[len(self.transformations)] = ('Sample', [n_train, n_val])
 
         return self
+
+    def split(self, val_frac):
+        """Apply train-val split to dataset images.
         
+        Arguments:
+            val_frac {float} -- Proportion of data to use for validation.
+        """
+
+        # Apply random split to images
+        self.images.set = np.random.choice(
+            ['train', 'val'],
+            p=[1 - val_frac, val_frac],
+            size=len(self.images)
+        )
+
+        # Join new image split to annotations
+        self.annotations.drop(columns='set', inplace=True)
+        self.annotations['category_id'] = self.annotations.index
+        self.annotations.set_index('image_id', inplace=True)
+        self.annotations = self.annotations.join(self.images[['set']])
+        self.annotations['image_id'] = self.annotations.index
+        self.annotations.set_index('category_id', inplace=True)
+
+        self.analyze()
+        self.transformations[len(self.transformations)] = ('Split', val_frac)
+
+        return self
 
     def merge(self, other, names=('data0', 'data1')):
         """Merge two datasets.
@@ -171,7 +279,7 @@ class Builder(object):
         self.source.extend(other.source)
         self.source_id.extend(other.source_id)
         self.info.extend(copy.deepcopy(other.info))
-        self.licenses.extend(copy.deepcopy(other.licenses))
+        self.licenses = pd.concat((self.licenses, other.licenses))
         self.image_paths.extend(other.image_paths)
 
         # Build new category table, updating category ids in other dataset as needed
@@ -234,7 +342,7 @@ class Builder(object):
             
         instances_train = {
             'info': self.info,
-            'licenses': self.licenses,
+            'licenses': self.licenses.to_dict(orient='records'),
             'categories': self.categories.reset_index().to_dict(orient='records'),
             'images': []
         }

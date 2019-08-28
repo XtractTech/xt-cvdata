@@ -13,9 +13,6 @@ from .builder import Builder
 
 class COCO(Builder):
 
-    base_url = 'http://images.cocodataset.org'
-    ann_url = 'annotations/annotations_trainval2017.zip'
-
     def __init__(
         self, source,
         inst_val_path='annotations/instances_val2017.json',
@@ -52,33 +49,14 @@ class COCO(Builder):
         self.inst_train_path = inst_train_path
         self.image_paths = [image_paths]
 
-        # Check if annotations already downloaded
-        downloaded = False
-        if source is not None:
-            downloaded = all(
-                os.path.exists(os.path.join(source, p)) 
-                    for p in [self.inst_val_path, self.inst_train_path]
-            )
-
-        # Load annotations into object
-        with TemporaryDirectory() as ann_dir:
-            if not downloaded:
-                print(f'Downloading annotations from {self.base_url}')
-                zip_path = os.path.join(ann_dir, self.ann_url)
-                os.makedirs(os.path.dirname(zip_path), exist_ok=True)
-                wget.download(os.path.join(self.base_url, self.ann_url), zip_path)
-                with ZipFile(zip_path) as zf:
-                    zf.extractall(ann_dir)
-            else:
-                ann_dir = source
-
-            with open(os.path.join(ann_dir, self.inst_val_path)) as jf:
-                instances_val = json.load(jf)
-            with open(os.path.join(ann_dir, self.inst_train_path)) as jf:
-                instances_train = json.load(jf)
+        with open(os.path.join(source, self.inst_val_path)) as jf:
+            instances_val = json.load(jf)
+        with open(os.path.join(source, self.inst_train_path)) as jf:
+            instances_train = json.load(jf)
 
         self.info = [instances_train['info']]
-        self.licenses = [instances_train['licenses']]
+        self.licenses = pd.DataFrame(instances_train['licenses'])
+        self.licenses['source'] = source
 
         self.categories = pd.DataFrame(instances_train['categories'])
         self.categories.set_index('id', inplace=True)
@@ -109,5 +87,6 @@ class COCO(Builder):
         self.images.index.name = 'id'
         self.annotations.image_id = self.source_id[0] + '_' + self.annotations.image_id.astype(str)
         self.annotations.id = self.source_id[0] + self.annotations.id.astype(str)
-        
+
+        self.verify_schema()
         self.analyze()

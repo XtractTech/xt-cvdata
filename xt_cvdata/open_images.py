@@ -13,7 +13,6 @@ from .builder import Builder
 
 class OpenImages(Builder):
 
-    base_url = 'https://requestor-proxy.figure-eight.com/figure_eight_datasets/open-images'
     class_desc_path = 'annotations/class-descriptions-boxable.csv'
     inst_val_path = 'annotations/validation-annotations-bbox.csv'
     inst_train_path = 'annotations/train-annotations-bbox.csv'
@@ -44,6 +43,21 @@ class OpenImages(Builder):
                     ...
         """
 
+        if not os.path.exists(os.path.join(source, self.img_sizes_val)):
+            print('Collecting image dimensions')
+            find_cmd = (
+                "find {} -name '*.jpg' -exec identify -format '%f,%w,%h\n' {{}} \; | "
+                "pv -lrbt -N 'Collecting image dimensions' > {}"
+            )
+            os.system(find_cmd.format(
+                os.path.join(source, self.image_paths[0]['val']),
+                os.path.join(source, self.img_sizes_val)
+            ))
+            os.system(find_cmd.format(
+                os.path.join(source, self.image_paths[0]['train']),
+                os.path.join(source, self.img_sizes_train)
+            ))
+
         self.info = [
             {
                 'description': 'Open Images Dataset v5',
@@ -52,7 +66,16 @@ class OpenImages(Builder):
                 'year': 2019
             }
         ]
-        self.licenses = [[{'id': 1, 'name': 'Apache License Version 2.0', 'url': 'http://www.apache.org/licenses/'}]]
+
+        self.licenses = pd.DataFrame(
+            [{
+                'id': 1,
+                'name': 'Apache License Version 2.0',
+                'url': 'http://www.apache.org/licenses/',
+                'source': source
+            }]
+        )
+        self.licenses.set_index('id', inplace=True)
 
         self.categories = pd.read_csv(os.path.join(source, self.class_desc_path), header=None)
         self.categories.columns = ['id', 'name']
@@ -70,10 +93,6 @@ class OpenImages(Builder):
         self.images['file_name'] = self.images.id + '.jpg'
         self.images['license'] = 1
         self.images['source'] = source
-
-        # if not os.path.exists(os.path.join(self.source[0], self.img_sizes_train)):
-            # TODO: add bash command to generate image dims using ImageMagick's `identify` function.
-            # find ./val -name '*.jpg' -exec identify -format '%f,%w,%h\n' {} \; > test.txt
 
         img_sizes = pd.concat((
             pd.read_csv(os.path.join(source, self.img_sizes_train), header=None),
@@ -142,4 +161,5 @@ class OpenImages(Builder):
         self.annotations.image_id = self.source_id[0] + '_' + self.annotations.image_id.astype(str)
         self.annotations.id = self.source_id[0] + self.annotations.id.astype(str)
         
+        self.verify_schema()
         self.analyze()
