@@ -43,6 +43,8 @@ class OpenImages(Builder):
                     ...
         """
 
+        # If not already there, get a list of the image sizes
+        # This is needed to convert fractional bboxes to pixels
         if not os.path.exists(os.path.join(source, self.img_sizes_val)):
             print('Collecting image dimensions')
             find_cmd = (
@@ -77,14 +79,17 @@ class OpenImages(Builder):
         )
         self.licenses.set_index('id', inplace=True)
 
+        # Read in categories and define numeric ID
         self.categories = pd.read_csv(os.path.join(source, self.class_desc_path), header=None)
         self.categories.columns = ['id', 'name']
         self.categories['supercategory'] = None
         self.categories = self.categories.reset_index().set_index('id')
 
+        # Read in annotations files (for full Open Images, these are pretty big)
         annotations_val = pd.read_csv(os.path.join(source, self.inst_val_path))
         annotations_train = pd.read_csv(os.path.join(source, self.inst_train_path))
 
+        # Combine training and validation sets into single data frame
         images_train = pd.DataFrame(annotations_train.ImageID.unique(), columns=['id'])
         images_val = pd.DataFrame(annotations_val.ImageID.unique(), columns=['id'])
         images_train['set'] = 'train'
@@ -94,6 +99,7 @@ class OpenImages(Builder):
         self.images['license'] = 1
         self.images['source'] = source
 
+        # Load and join image dimensions
         img_sizes = pd.concat((
             pd.read_csv(os.path.join(source, self.img_sizes_train), header=None),
             pd.read_csv(os.path.join(source, self.img_sizes_val), header=None)
@@ -102,6 +108,8 @@ class OpenImages(Builder):
         self.images = self.images.merge(img_sizes, how='inner', on='file_name')
         self.images.set_index('id', inplace=True)
 
+        # Build annotations, converting bboxes to pixel values (x, y, w, h)
+        # Here, we also set some required columns to default values
         annotations_train.drop(
             columns=[
                 'Source', 'Confidence', 'IsOccluded', 'IsTruncated',
@@ -151,11 +159,14 @@ class OpenImages(Builder):
         self.categories.set_index('index', inplace=True)
         self.categories.index.name = 'id'
 
+        # Save source in list so that we can append later if datasets are merged
         self.source = [source]
+
+        # Generate unique numeric ID for this data source
         self.source_id = [str(abs(hash(source)) % (10 ** 8))]
         self.transformations = {}
 
-        # Make image and annotation IDs unique to this data source
+        # Make image and annotation IDs unique to this data source using unique ID
         self.images.index = self.source_id[0] + '_' + self.images.index.astype(str)
         self.images.index.name = 'id'
         self.annotations.image_id = self.source_id[0] + '_' + self.annotations.image_id.astype(str)

@@ -49,6 +49,7 @@ class COCO(Builder):
         self.inst_train_path = inst_train_path
         self.image_paths = [image_paths]
 
+        # Load annotations into memory
         with open(os.path.join(source, self.inst_val_path)) as jf:
             instances_val = json.load(jf)
         with open(os.path.join(source, self.inst_train_path)) as jf:
@@ -61,6 +62,7 @@ class COCO(Builder):
         self.categories = pd.DataFrame(instances_train['categories'])
         self.categories.set_index('id', inplace=True)
 
+        # Combine training and validation sets into single data frame
         images_train = pd.DataFrame(instances_train['images'])
         images_val = pd.DataFrame(instances_val['images'])
         images_train['set'] = 'train'
@@ -78,11 +80,14 @@ class COCO(Builder):
         self.annotations = self.annotations.join(self.categories[['name']], how='inner')
         self.annotations.index.name = 'category_id'
 
+        # Save source in list so that we can append later if datasets are merged
         self.source = [source]
+
+        # Generate unique numeric ID for this data source
         self.source_id = [str(abs(hash(source)) % (10 ** 8))]
         self.transformations = {}
 
-        # Make image and annotation IDs unique to this data source
+        # Make image and annotation IDs unique to this data source using unique ID
         self.images.index = self.source_id[0] + '_' + self.images.index.astype(str)
         self.images.index.name = 'id'
         self.annotations.image_id = self.source_id[0] + '_' + self.annotations.image_id.astype(str)
