@@ -12,7 +12,7 @@ More to come.
 
 ## Installation
 
-```{bash}
+```bash
 git clone https://github.com/XtractTech/xt-cvdata.git
 pip install ./xt-cvdata
 ```
@@ -23,7 +23,7 @@ See specific help on a dataset class using `help`. E.g., `help(xt_cvdata.COCO)`.
 
 #### Building a dataset
 
-```{python}
+```python
 from xt_cvdata import COCO, OpenImages
 
 # Build an object populated with the COCO image list, categories, and annotations
@@ -46,7 +46,7 @@ coco.merge(oi).build('./data/new_dataset_dir')
 
 This package follows pytorch chaining rules, meaning that methods operating on an object modify it in-place, but also return the modified object. Hence, the above operations can also be completed using:
 
-```{python}
+```python
 from xt_cvdata import COCO, OpenImages
 
 (
