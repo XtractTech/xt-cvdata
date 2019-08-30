@@ -337,7 +337,7 @@ class Builder(object):
             Exception: When target directory is not empty.
         """
 
-        if use_symlinks:
+        if use_links:
             cp_fn = os.link
         else:
             cp_fn = shutil.copy
