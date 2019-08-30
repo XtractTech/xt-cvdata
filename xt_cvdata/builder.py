@@ -375,15 +375,19 @@ class Builder(object):
 
         for i, row in tqdm(self.images.reset_index().iterrows(), desc='Building dataset'):
             image = row.to_dict()
-            src_path = image['file_name']
-            dest_path = os.path.join(image['id'].split('_')[0], image['file_name'])
-            cp_fn(
-                os.path.abspath(
-                    os.path.join(image['source'],
-                    self.image_paths[self.source.index(image['source'])][image['set']], src_path)
-                ),
-                os.path.join(target_dir, image['set'], dest_path)
+            src_path = os.path.abspath(os.path.join(
+                image['source'],
+                self.image_paths[self.source.index(image['source'])][image['set']],
+                image['file_name'],
+            ))
+            dest_path = os.path.join(
+                target_dir,
+                image['set'],
+                image['id'].split('_')[0],
+                image['file_name']
             )
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            cp_fn(src_path, dest_path)
             image['file_name'] = dest_path
             if image['set'] == 'train':
                 instances_train['images'].append(image)
