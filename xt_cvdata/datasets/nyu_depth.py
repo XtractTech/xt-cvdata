@@ -52,12 +52,18 @@ class NYUDepthV2(data.Dataset):
         return len(self.images)
 
 if __name__ == '__main__':
-    dataset = NYUDepthV2('data/nyu_depth_v2_labeled.mat')
+    import matplotlib.pyplot as plt
 
-    import time
-    start_time = time.time()
-    inds = np.random.permutation(len(dataset))
-    for i in inds[:100]:
-        img, label = dataset[i]
-    eps = 100/(time.time() - start_time)
-    print('EPS: %f' % (eps))
+    # Plot example
+    dataset = NYUDepthV2('/nasty/data/common/NYU_depth/nyu_depth_v2_labeled.mat')
+    image, label = next(iter(dataset))
+
+    plt.subplot(1,2,1)
+    plt.title('Image')
+    plt.imshow(np.moveaxis(image.numpy(), 0 ,-1))
+
+    plt.subplot(1,2,2)
+    plt.title('Depthmap')
+    plt.imshow(label.squeeze().numpy())
+    plt.suptitle('NYU Depth V2')
+    plt.show()

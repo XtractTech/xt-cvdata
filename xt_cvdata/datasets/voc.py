@@ -8,6 +8,16 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 class VOC(data.Dataset):
+    """
+    Pascal VOC 2012 Dataset class. You can get the data from here: http://host.robots.ox.ac.uk/pascal/VOC/voc2012/index.html#devkit
+
+    Args:
+        root (str): Path to data folder.
+        transform (object): Data transforms to apply to images.
+        target_transform (object): Data transforms to apply to labels.
+        image_set (str): Which split to load, either 'train or val'
+
+    """
     def __init__(self, root, transform=None, target_transform=None, image_set='train'):
         self.root = root
         self.transform = transform
@@ -46,6 +56,10 @@ class VOC(data.Dataset):
         return len(self.ids)
 
     def _color_map(self, normalized=True, base_map_name='tab20'):
+        """
+        Custom Colormap for the labels.
+        """
+
         base_map = matplotlib.cm.get_cmap(base_map_name, 22).colors
         cmap = np.zeros_like(base_map)
         cmap[0,-1] = 1
@@ -73,14 +87,13 @@ if __name__ == '__main__':
         Relabel(255, 21)
     ])
 
-    dataset = VOC('/home/klensink/GIT/SemanticSegmentation/data/VOC2012', transform=data_transforms, target_transform=label_transforms)
+    dataset = VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
 
-    loader = data.DataLoader(dataset)
+    image, label = dataset[0]
 
-    for i,(image, label) in enumerate(loader):
-        plt.imshow(plottable(image))
-        plt.figure()
-        plt.imshow(plottable(label), cmap=plt.cm.gist_ncar)
-        plt.show()
-        raise Exception('test')
+    plt.imshow(plottable(image))
+    plt.figure()
+    plt.imshow(plottable(label), cmap=plt.cm.gist_ncar)
+    plt.show()
+    raise Exception('test')
         
