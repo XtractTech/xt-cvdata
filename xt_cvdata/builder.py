@@ -119,12 +119,16 @@ class Builder(object):
 
         # Get class-wise statistics
         class_dist = self.annotations.groupby(['set', 'name']).size()
-        self.class_distribution = pd.DataFrame({
-            'train': class_dist.loc[class_dist.index == 'train'],
-            'val': class_dist.loc[class_dist.index == 'val']
-        }).fillna(0).astype(int)
-        self.class_distribution['train_prop'] = self.class_distribution.train / self.class_distribution.train.sum()
-        self.class_distribution['val_prop'] = self.class_distribution.val / self.class_distribution.val.sum()
+        self.class_distribution = None
+        for s in class_dist.index.levels[0]:
+            set_dist = class_dist[s]
+            set_dist.name = s
+            set_dist[f'{s}_prop'] = set_dist / set_dist.sum()
+            if self.class_distribution is None:
+                self.class_distribution = pd.DataFrame(set_dist)
+            else:
+                self.class_distribution = self.class_distribution.join(set_dist, how='outer')
+        self.class_distribution = self.class_distribution.fillna(0)
     
     def subset(self, classes: list, keep_intersecting: bool=False):
         """Subset object categories.
@@ -204,7 +208,7 @@ class Builder(object):
         
         Keyword Arguments:
             n_train {int} -- Number of training images to sample. (default: {None})
-            n_val {int} -- Number of validation images to sample (default: {None})
+            n_val {int} -- Number of validation images to sample. (default: {None})
         
         Returns:
             Builder -- Sampled dataset builder object.
@@ -255,7 +259,8 @@ class Builder(object):
         return self
 
     def merge(self, other, names=('data0', 'data1')):
-        """Merge two datasets.
+        """Merge two datasets. Unlink most other methods, this does not modify either dataset in-place.
+        Hence, the result should be captured in a variable.
         
         Arguments:
             other {Builder} -- Other dataset builder object.
@@ -274,59 +279,66 @@ class Builder(object):
         if not isinstance(other, Builder):
             raise TypeError('"other" must be of a type that inherits from "Builder"')
         
+        # Make copy of left dataset
+        merged = copy.deepcopy(self)
+
         # Combine metadata
-        self.source.extend(other.source)
-        self.source_id.extend(other.source_id)
-        self.info.extend(copy.deepcopy(other.info))
-        self.licenses = pd.concat((self.licenses, other.licenses))
-        self.image_paths.extend(other.image_paths)
+        merged.source.extend(other.source)
+        merged.source_id.extend(other.source_id)
+        merged.info.extend(copy.deepcopy(other.info))
+        merged.licenses = pd.concat((merged.licenses, other.licenses), sort=True)
+        merged.image_paths.extend(other.image_paths)
 
         # Build new category table, updating category ids in other dataset as needed
-        current_max = self.categories.index.max()
+        current_max = merged.categories.index.max()
         for i, row in other.categories.iterrows():
-            if row['name'] not in self.categories.name.values:
+            if row['name'] not in merged.categories.name.values:
                 current_max += 1
                 row.name = current_max
-                self.categories = self.categories.append(row)
-        self.categories['new_id'] = self.categories.index
+                merged.categories = merged.categories.append(row)
+        merged.categories['new_id'] = merged.categories.index
 
         # Update category ids in other annotations
-        other_annotations = other.annotations.merge(self.categories[['name', 'new_id']], on='name', how='left')
-        self.categories.drop(columns='new_id', inplace=True)
+        other_annotations = other.annotations.merge(merged.categories[['name', 'new_id']], on='name', how='left')
+        merged.categories.drop(columns='new_id', inplace=True)
         if other_annotations.new_id.isna().any():
             raise Exception('Problem with merge: missing category ids')
         other_annotations.set_index('new_id', inplace=True)
         other_annotations.index.name = 'category_id'
 
         # Combine annotations
-        self.annotations = pd.concat((self.annotations, other_annotations), sort=True)
-        self.annotations = self.annotations[~self.annotations.id.duplicated(keep='first')]
+        merged.annotations = pd.concat((merged.annotations, other_annotations), sort=True)
+        merged.annotations = merged.annotations[~merged.annotations.id.duplicated(keep='first')]
 
         # Combine images
-        self.images = pd.concat((self.images, other.images), sort=True)
-        self.images = self.images[~self.images.index.duplicated(keep='first')]
+        merged.images = pd.concat((merged.images, other.images), sort=True)
+        merged.images = merged.images[~merged.images.index.duplicated(keep='first')]
 
-        self.analyze()
-        self.transformations = {
-            0: {names[0]: copy.deepcopy(self.transformations), names[1]: copy.deepcopy(other.transformations)},
+        merged.analyze()
+        merged.transformations = {
+            0: {names[0]: copy.deepcopy(merged.transformations), names[1]: copy.deepcopy(other.transformations)},
             1: 'Merge datasets'
         }
 
-        return self
+        return merged
     
-    def build(self, target_dir: str, use_symlinks=True):
+    def build(self, target_dir: str, use_links=True):
         """Build defined dataset. Annotation JSON files are exported and images are copied
-        using symlinks.
+        using hard links.
         
         Arguments:
             target_dir {str} -- Target directory for dataset.
+
+        Keyword arguments:
+            use_links {bool} -- Whether to create copies or hard links to image files.
+                (default: {True})
         
         Raises:
             Exception: When target directory is not empty.
         """
 
         if use_symlinks:
-            cp_fn = os.symlink
+            cp_fn = os.link
         else:
             cp_fn = shutil.copy
 
