@@ -388,7 +388,6 @@ class Builder(object):
             )
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             cp_fn(src_path, dest_path)
-            image['file_name'] = dest_path
             if image['set'] == 'train':
                 instances_train['images'].append(image)
             else:
