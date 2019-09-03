@@ -1,2 +1,7 @@
-from nyu_depth import NYUDepthV2
-from voc import VOC
+__all__ = [
+    'NYUDepthV2',
+    'VOC'
+]
+
+from .nyu_depth import NYUDepthV2
+from .voc import VOC

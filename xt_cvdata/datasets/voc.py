@@ -1,11 +1,7 @@
 import torch.utils.data as data
-from PIL import Image, ImageDraw
-import os
 import os.path
-import sys
 import numpy as np
 import matplotlib
-import matplotlib.pyplot as plt
 
 class VOC(data.Dataset):
     """
@@ -17,6 +13,19 @@ class VOC(data.Dataset):
         target_transform (object): Data transforms to apply to labels.
         image_set (str): Which split to load, either 'train or val'
 
+    Example:
+        >>> from xt_cvdata.transforms import ToLabel, Relabel
+        >>> data_transforms = transforms.Compose([
+        >>>     transforms.ToTensor()
+        >>> ])
+        >>>
+        >>> # These custom transforms are in xt_cvdata.transforms
+        >>> label_transforms = transforms.Compose([
+        >>>     ToLabel(),
+        >>>     Relabel(255, 21)
+        >>> ])
+        >>> 
+        >>> dataset = VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
     """
     def __init__(self, root, transform=None, target_transform=None, image_set='train'):
         self.root = root
@@ -68,32 +77,3 @@ class VOC(data.Dataset):
 
         return matplotlib.colors.ListedColormap(cmap)
     
-
-if __name__ == '__main__':
-
-    from torchvision import transforms
-    from mytransforms import ToLabel, Relabel
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from utils import plottable
-
-    data_transforms = transforms.Compose([
-        transforms.CenterCrop(256),
-        transforms.ToTensor()
-    ])
-    label_transforms = transforms.Compose([
-        transforms.CenterCrop(256),
-        ToLabel(),
-        Relabel(255, 21)
-    ])
-
-    dataset = VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
-
-    image, label = dataset[0]
-
-    plt.imshow(plottable(image))
-    plt.figure()
-    plt.imshow(plottable(label), cmap=plt.cm.gist_ncar)
-    plt.show()
-    raise Exception('test')
-        

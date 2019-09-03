@@ -21,7 +21,11 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url=GITHUB_URL,
-    packages=['xt_cvdata'],
+    packages=[
+        'xt_cvdata',
+        'xt_cvdata.datasets',
+        'xt_cvdata.transforms'
+    ],
     provides=['xt_cvdata'],
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -32,6 +36,8 @@ setuptools.setup(
         'wget',
         'numpy',
         'pandas',
+        'torch',
+        'h5py',
         'tqdm'
     ],
 )
