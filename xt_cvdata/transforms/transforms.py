@@ -1,3 +1,6 @@
+import torch 
+import numpy as np
+
 class Relabel:
     """ Transform to replace all occurances of `old_label` with `new_label` in a torch.tensor.
     

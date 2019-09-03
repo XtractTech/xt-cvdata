@@ -1,7 +1,8 @@
 import torch.utils.data as data
 import os.path
 import numpy as np
-import matplotlib
+import matplotlib.cm
+from PIL import Image
 
 class VOC(data.Dataset):
     """
@@ -15,6 +16,8 @@ class VOC(data.Dataset):
 
     Example:
         >>> from xt_cvdata.transforms import ToLabel, Relabel
+        >>> from torchvision import transforms
+        >>> 
         >>> data_transforms = transforms.Compose([
         >>>     transforms.ToTensor()
         >>> ])
@@ -25,7 +28,7 @@ class VOC(data.Dataset):
         >>>     Relabel(255, 21)
         >>> ])
         >>> 
-        >>> dataset = VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
+        >>> dataset = xcvd.datasets.VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
     """
     def __init__(self, root, transform=None, target_transform=None, image_set='train'):
         self.root = root

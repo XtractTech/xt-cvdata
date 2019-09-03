@@ -23,8 +23,6 @@ setuptools.setup(
     url=GITHUB_URL,
     packages=[
         'xt_cvdata',
-        'xt_cvdata.datasets',
-        'xt_cvdata.transforms'
     ],
     provides=['xt_cvdata'],
     classifiers=[
@@ -38,6 +36,8 @@ setuptools.setup(
         'pandas',
         'torch',
         'h5py',
+        'PIL',
+        'matplotlib',
         'tqdm'
     ],
 )
