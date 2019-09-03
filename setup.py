@@ -21,15 +21,15 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url=GITHUB_URL,
-    packages=['xt_cvdata'],
-    provides=['xt_cvdata'],
+    packages=[
+        'xt_cvdata',
+        'xt_cvdata.apis'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'pycocotools',
-        'wget',
         'numpy',
         'pandas',
         'tqdm'

@@ -239,7 +239,7 @@ class Builder(object):
         """
 
         # Apply random split to images
-        self.images.set = np.random.choice(
+        self.images['new_set'] = np.random.choice(
             ['train', 'val'],
             p=[1 - val_frac, val_frac],
             size=len(self.images)
@@ -375,6 +375,8 @@ class Builder(object):
 
         for i, row in tqdm(self.images.reset_index().iterrows(), desc='Building dataset'):
             image = row.to_dict()
+            if np.isnan(image.get('new_set', np.nan)):
+                image['new_set'] = image['set']
             src_path = os.path.abspath(os.path.join(
                 image['source'],
                 self.image_paths[self.source.index(image['source'])][image['set']],
@@ -382,14 +384,14 @@ class Builder(object):
             ))
             dest_path = os.path.join(
                 target_dir,
-                image['set'],
+                image['new_set'],
                 image['id'].split('_')[0],
                 image['file_name']
             )
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             cp_fn(src_path, dest_path)
             image['file_name'] = os.path.join(image['id'].split('_')[0], image['file_name'])
-            if image['set'] == 'train':
+            if image['new_set'] == 'train':
                 instances_train['images'].append(image)
             else:
                 instances_val['images'].append(image)
