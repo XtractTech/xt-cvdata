@@ -375,7 +375,7 @@ class Builder(object):
 
         for i, row in tqdm(self.images.reset_index().iterrows(), desc='Building dataset'):
             image = row.to_dict()
-            if np.isnan(image.get('new_set', np.nan)):
+            if not isinstance(image.get('new_set', np.nan), str):
                 image['new_set'] = image['set']
             src_path = os.path.abspath(os.path.join(
                 image['source'],
