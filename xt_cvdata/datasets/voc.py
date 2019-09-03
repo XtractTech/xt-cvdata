@@ -6,7 +6,8 @@ from PIL import Image
 
 class VOC(data.Dataset):
     """
-    Pascal VOC 2012 Dataset class. You can get the data from here: http://host.robots.ox.ac.uk/pascal/VOC/voc2012/index.html#devkit
+    Pascal VOC 2012 Dataset class. You can get the data from: 
+        http://host.robots.ox.ac.uk/pascal/VOC/voc2012/index.html#devkit
 
     Args:
         root (str): Path to data folder.
@@ -28,7 +29,11 @@ class VOC(data.Dataset):
         >>>     Relabel(255, 21)
         >>> ])
         >>> 
-        >>> dataset = xcvd.datasets.VOC('/nasty/data/common/VOC2012', transform=data_transforms, target_transform=label_transforms)
+        >>> dataset = xcvd.datasets.VOC(
+            '/nasty/data/common/VOC2012', 
+            transform=data_transforms, 
+            target_transform=label_transforms
+            )
     """
     def __init__(self, root, transform=None, target_transform=None, image_set='train'):
         self.root = root
