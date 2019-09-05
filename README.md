@@ -4,9 +4,10 @@
 
 This repo contains utilities for building and working with computer vision datasets.
 
-So far, the following open-source datasets are included:
-1. COCO 2017 (detection and segmentation): `xt_cvdata.COCO`
-1. Open Images V5 (detection and segmentation): `xt_cvdata.OpenImages`
+So far, APIs for the following open-source datasets are included:
+1. COCO 2017 (detection and segmentation): `xt_cvdata.apis.COCO`
+1. Open Images V5 (detection and segmentation): `xt_cvdata.apis.OpenImages`
+1. Visual Object Tagging Tool (VoTT) CSV output (detection): `xt_cvdata.apis.VoTTCSV`
 
 More to come.
 
@@ -19,7 +20,7 @@ pip install ./xt-cvdata
 
 ## Usage
 
-See specific help on a dataset class using `help`. E.g., `help(xt_cvdata.COCO)`.
+See specific help on a dataset class using `help`. E.g., `help(xt_cvdata.apis.COCO)`.
 
 #### Building a dataset
 
@@ -38,27 +39,28 @@ print(coco.class_distribution)
 
 # Get just the person classes
 coco.subset(['person'])
-oi.subset(['Person']).rename({'Person': 'person})
+oi.subset(['Person']).rename({'Person': 'person'})
 
 # Merge and build
-coco.merge(oi).build('./data/new_dataset_dir')
+merged = coco.merge(oi)
+merged.build('./data/new_dataset_dir')
 ```
 
-This package follows pytorch chaining rules, meaning that methods operating on an object modify it in-place, but also return the modified object. Hence, the above operations can also be completed using:
+This package follows pytorch chaining rules, meaning that methods operating on an object modify it in-place, but also return the modified object. The exception is the `merge()` method which does not modify in-place and returns a new merged object. Hence, the above operations can also be completed using:
 
 ```python
 from xt_cvdata import COCO, OpenImages
 
-(
+merged = (
     COCO('/nasty/data/common/COCO_2017')
         .subset(['person'])
         .merge(
             OpenImages('/nasty/data/common/COCO_2017')
                 .subset(['Person'])
-                .rename({'Person': 'person})
+                .rename({'Person': 'person'})
         )
-        .build('./data/new_dataset_dir')
 )
+merged.build('./data/new_dataset_dir')
 ```
 
 In practice, somewhere between the two approaches will probably be most readable.

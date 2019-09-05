@@ -23,21 +23,7 @@ class COCO(Builder):
         Keyword Arguments:
             inst_val_path {str} -- Relative path to validation annotations. 
             inst_train_path {str} -- Relative path to train annotations. 
-            image_paths {dict} -- Dict of relative path to train and val images. 
-        
-        Notes:
-            The COCO dataset directory should have the following structure:
-                ./annotations
-                    instances_val2017.json
-                    instances_train2017.json
-                ./train
-                    <image1>.jpg
-                    <image2>.jpg
-                    ...
-                ./val
-                    <image1>.jpg
-                    <image2>.jpg
-                    ...
+            image_paths {dict} -- Dict of relative path to train and val images.
         """
 
         self.inst_val_path = inst_val_path
