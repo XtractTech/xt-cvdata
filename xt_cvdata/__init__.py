@@ -1,5 +1,9 @@
 __all__ = [
-    'apis'
+    'apis',
+    'transforms',
+    'datasets'
 ]
 
 from . import apis
+from . import transforms
+from . import datasets

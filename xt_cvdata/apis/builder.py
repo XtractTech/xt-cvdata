@@ -232,7 +232,9 @@ class Builder(object):
         return self
 
     def split(self, val_frac):
-        """Apply train-val split to dataset images.
+        """Apply a random train-val split to dataset images.
+        
+        Uses numpy's `random.choice` to generate the new split.
         
         Arguments:
             val_frac {float} -- Proportion of data to use for validation.
