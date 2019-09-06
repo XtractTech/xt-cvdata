@@ -126,7 +126,7 @@ class Builder(object):
             self.class_distribution = self.class_distribution.join(set_dist, how='outer')
         self.class_distribution = self.class_distribution.fillna(0)
     
-    def subset(self, classes: list, keep_intersecting: bool=False):
+    def subset(self, classes: list, keep_images: bool=False, keep_intersecting: bool=False):
         """Subset object categories.
         
         Arguments:
@@ -134,6 +134,8 @@ class Builder(object):
                 dataset.
 
         Keywork Arguments:
+            keep_images {bool} -- Whether or not to keep images in the dataset that end up with no
+                annotations. (default: {False})
             keep_intersecting {bool} -- Whether or not to keep intersecting classes. When true,
                 first finds all images in which annotations for `classes` exist, then also includes
                 all other annotations found in those images. (default: {False})
@@ -157,7 +159,7 @@ class Builder(object):
         subset_categories = self.categories.loc[self.categories.name.isin(classes)]
         subset_annotations = self.annotations.join(subset_categories[[]], how='inner')
         subset_annotations.index.name = 'category_id'
-        self.images = self.images.filter(subset_annotations.image_id.unique(), axis=0)
+        subset_images = self.images.filter(subset_annotations.image_id.unique(), axis=0)
 
         if not keep_intersecting:
             self.annotations = subset_annotations
