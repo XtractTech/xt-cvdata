@@ -165,7 +165,10 @@ class Builder(object):
             self.annotations = subset_annotations
             self.categories = subset_categories
         else:
-            self.annotations = self.annotations.join(self.images[[]], on='image_id', how='inner')
+            self.annotations = self.annotations.join(subset_images[[]], on='image_id', how='inner')
+        
+        if not keep_images:
+            self.images = subset_images
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Subset classes', str(classes))
