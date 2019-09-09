@@ -4,6 +4,7 @@ Change type:
 
 - [ ] Bug fix
 - [ ] Feature
+- [ ] Documentation
 
 Checklist:
 
