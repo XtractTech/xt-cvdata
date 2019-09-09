@@ -119,14 +119,14 @@ class Builder(object):
 
         # Get class-wise statistics
         class_dist = self.annotations.groupby(['set', 'name']).size()
-        self.class_distribution = pd.DataFrame({
-            'train': class_dist.loc[class_dist.index == 'train'],
-            'val': class_dist.loc[class_dist.index == 'val']
-        }).fillna(0).astype(int)
-        self.class_distribution['train_prop'] = self.class_distribution.train / self.class_distribution.train.sum()
-        self.class_distribution['val_prop'] = self.class_distribution.val / self.class_distribution.val.sum()
+        self.class_distribution = pd.DataFrame()
+        for s in class_dist.index.levels[0]:
+            set_dist = class_dist[s]
+            set_dist = pd.DataFrame({s: set_dist, f'{s}_prop': set_dist / set_dist.sum()})
+            self.class_distribution = self.class_distribution.join(set_dist, how='outer')
+        self.class_distribution = self.class_distribution.fillna(0)
     
-    def subset(self, classes: list, keep_intersecting: bool=False):
+    def subset(self, classes: list, keep_images: bool=False, keep_intersecting: bool=False):
         """Subset object categories.
         
         Arguments:
@@ -134,12 +134,21 @@ class Builder(object):
                 dataset.
 
         Keywork Arguments:
-            keep_intersecting {bool} -- Whether or not to keep intersecting classes. When true, first
-                finds all images in which annotations for `classes` exist, then also includes all
-                other annotations found in those images. (default: {False})
+            keep_images {bool} -- Whether or not to keep images in the dataset that end up with no
+                annotations. (default: {False})
+            keep_intersecting {bool} -- Whether or not to keep intersecting classes. When true,
+                first finds all images in which annotations for `classes` exist, then also includes
+                all other annotations found in those images. (default: {False})
         
         Raises:
             Exception: If not all `classes` exist in dataset.
+        
+        Returns:
+            Builder -- Modified dataset builder object.
+
+        Example:
+        >>> api = Builder(<source>)
+        >>> api.subset(['person', 'cat', 'dog'])
         """
 
         for cls in classes:
@@ -150,13 +159,16 @@ class Builder(object):
         subset_categories = self.categories.loc[self.categories.name.isin(classes)]
         subset_annotations = self.annotations.join(subset_categories[[]], how='inner')
         subset_annotations.index.name = 'category_id'
-        self.images = self.images.filter(subset_annotations.image_id.unique(), axis=0)
+        subset_images = self.images.filter(subset_annotations.image_id.unique(), axis=0)
 
         if not keep_intersecting:
             self.annotations = subset_annotations
             self.categories = subset_categories
         else:
-            self.annotations = self.annotations.join(self.images[[]], on='image_id', how='inner')
+            self.annotations = self.annotations.join(subset_images[[]], on='image_id', how='inner')
+        
+        if not keep_images:
+            self.images = subset_images
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Subset classes', str(classes))
@@ -169,6 +181,13 @@ class Builder(object):
         
         Arguments:
             mapping {dict} -- Mapping from old to new names. E.g., {'old_name': 'new_name', ...}
+        
+        Returns:
+            Builder -- Modified dataset builder object.
+
+        Example:
+        >>> api = Builder(<source>)
+        >>> api.rename({'person': 'human', 'cat': 'pet', 'dog': 'pet'})
         """
 
         for cls in mapping:
@@ -181,10 +200,15 @@ class Builder(object):
             mask = self.categories.name == old_name
             self.categories.loc[mask, 'new_name'] = new_name
             new_mask = self.categories.new_name == new_name
-            self.categories.loc[new_mask, 'new_id'] = self.categories.loc[new_mask].index.min().astype(int)
+            self.categories.loc[new_mask, 'new_id'] = (
+                self.categories.loc[new_mask].index.min().astype(int)
+            )
 
         self.annotations.drop(columns='name', inplace=True)
-        self.annotations = self.annotations.join(self.categories[['new_name', 'new_id']], how='inner')
+        self.annotations = self.annotations.join(
+            self.categories[['new_name', 'new_id']],
+            how='inner'
+        )
         self.annotations.rename(columns={'new_name': 'name', 'new_id': 'category_id'}, inplace=True)
         self.annotations.set_index('category_id', inplace=True)
 
@@ -199,49 +223,68 @@ class Builder(object):
 
         return self
     
-    def sample(self, n_train: int=None, n_val: int=None):
-        """Sample a fixed number of images from dataset
+    def sample(self, n):
+        """Sample a fixed number of images from dataset. This method does not shift images between
+        data splits (e.g., from train to val), only samples within them. Hence, if there are
+        currently 1000 images in train and 100 in val, up to 100 images can be sampled for the val
+        set.
         
         Keyword Arguments:
-            n_train {int} -- Number of training images to sample. (default: {None})
-            n_val {int} -- Number of validation images to sample (default: {None})
+            n {dict or int} -- Number of images to sample if an int is passed, or number
+                of images to sample from each image set if a dict is passed. (default: {{}}})
         
         Returns:
-            Builder -- Sampled dataset builder object.
+            Builder -- Modified dataset builder object.
+
+        Example:
+        >>> api = Builder(<source>)
+        >>> # Overall sampling
+        >>> api.sample(10000)
+        >>> # Set-specific sampling
+        >>> api.sample({'train': 1000, 'val': 10, 'test': 100})
         """
 
-        if n_train is not None:
-            images_train = self.images.loc[self.images.set == 'train'].sample(n_train)
+        if isinstance(n, int):
+            self.images = self.images.sample(n)
         else:
-            images_train = self.images.loc[self.images.set == 'train']
-        if n_val is not None:
-            images_val = self.images.loc[self.images.set == 'val'].sample(n_val)
-        else:
-            images_val = self.images.loc[self.images.set == 'val']
-        self.images = pd.concat((images_train, images_val))
-        self.annotations = self.annotations.merge(self.images[[]], left_on='image_id', right_index=True)
+            for split, split_n in n.items():
+                images_split = self.images.loc[self.images.set == split].sample(split_n)
+                self.images = pd.concat((self.images[self.images.set != split], images_split))
+
+        self.annotations = self.annotations.merge(
+            self.images[[]], left_on='image_id', right_index=True
+        )
         self.annotations.index.name = 'category_id'
 
         self.analyze()
-        self.transformations[len(self.transformations)] = ('Sample', [n_train, n_val])
+        self.transformations[len(self.transformations)] = ('Sample', n)
 
         return self
 
-    def split(self, val_frac):
-        """Apply a random train-val split to dataset images.
+    def split(self, sets: list, p: list):
+        """Apply a random split to dataset images. This will redistribute the existing images
+        between the specified splits (train, val, test, etc.).
         
         Uses numpy's `random.choice` to generate the new split.
         
         Arguments:
-            val_frac {float} -- Proportion of data to use for validation.
+            sets {list} -- List of names for image sets (e.g., ['train', 'val', 'test']).
+            p {list} -- List of proportions to assign to each set in `sets`. Should sum to 1.
+        
+        Returns:
+            Builder -- Modified dataset builder object.
+
+        Example:
+        >>> api = Builder(<source>)
+        >>> api.split(['train', 'val', 'test'], [0.8, 0.1, 0.1])
         """
 
+        # Save original set distribution (to enable finding source image files later)
+        if 'orig_set' not in self.images.columns:
+            self.images['orig_set'] = self.images.set
+
         # Apply random split to images
-        self.images.set = np.random.choice(
-            ['train', 'val'],
-            p=[1 - val_frac, val_frac],
-            size=len(self.images)
-        )
+        self.images.set = np.random.choice(sets, p=p, size=len(self.images))
 
         # Join new image split to annotations
         self.annotations.drop(columns='set', inplace=True)
@@ -252,18 +295,19 @@ class Builder(object):
         self.annotations.set_index('category_id', inplace=True)
 
         self.analyze()
-        self.transformations[len(self.transformations)] = ('Split', val_frac)
+        self.transformations[len(self.transformations)] = ('Split', sets, p)
 
         return self
 
     def merge(self, other, names=('data0', 'data1')):
-        """Merge two datasets.
+        """Merge two datasets. Unlink most other methods, this does not modify either dataset
+        in-place. Hence, the result should be captured in a variable.
         
         Arguments:
             other {Builder} -- Other dataset builder object.
         
         Keyword Arguments:
-            names {list} -- Names of two source datasets. If not specified (default: {('data0', 'data1')})
+            names {list} -- Names of two source datasets. (default: {('data0', 'data1')})
         
         Raises:
             TypeError: If 'other' is not of Builder type.
@@ -276,115 +320,134 @@ class Builder(object):
         if not isinstance(other, Builder):
             raise TypeError('"other" must be of a type that inherits from "Builder"')
         
+        # Make copy of left dataset
+        merged = copy.deepcopy(self)
+
         # Combine metadata
-        self.source.extend(other.source)
-        self.source_id.extend(other.source_id)
-        self.info.extend(copy.deepcopy(other.info))
-        self.licenses = pd.concat((self.licenses, other.licenses))
-        self.image_paths.extend(other.image_paths)
+        merged.source.extend(other.source)
+        merged.source_id.extend(other.source_id)
+        merged.info.extend(copy.deepcopy(other.info))
+        merged.licenses = pd.concat((merged.licenses, other.licenses), sort=True)
+        merged.image_paths.extend(other.image_paths)
 
         # Build new category table, updating category ids in other dataset as needed
-        current_max = self.categories.index.max()
+        current_max = merged.categories.index.max()
         for i, row in other.categories.iterrows():
-            if row['name'] not in self.categories.name.values:
+            if row['name'] not in merged.categories.name.values:
                 current_max += 1
                 row.name = current_max
-                self.categories = self.categories.append(row)
-        self.categories['new_id'] = self.categories.index
+                merged.categories = merged.categories.append(row)
+        merged.categories['new_id'] = merged.categories.index
 
         # Update category ids in other annotations
-        other_annotations = other.annotations.merge(self.categories[['name', 'new_id']], on='name', how='left')
-        self.categories.drop(columns='new_id', inplace=True)
+        other_annotations = other.annotations.merge(
+            merged.categories[['name', 'new_id']],
+            on='name',
+            how='left'
+        )
+        merged.categories.drop(columns='new_id', inplace=True)
         if other_annotations.new_id.isna().any():
             raise Exception('Problem with merge: missing category ids')
         other_annotations.set_index('new_id', inplace=True)
         other_annotations.index.name = 'category_id'
 
         # Combine annotations
-        self.annotations = pd.concat((self.annotations, other_annotations), sort=True)
-        self.annotations = self.annotations[~self.annotations.id.duplicated(keep='first')]
+        merged.annotations = pd.concat((merged.annotations, other_annotations), sort=True)
+        merged.annotations = merged.annotations[~merged.annotations.id.duplicated(keep='first')]
 
         # Combine images
-        self.images = pd.concat((self.images, other.images), sort=True)
-        self.images = self.images[~self.images.index.duplicated(keep='first')]
+        merged.images = pd.concat((merged.images, other.images), sort=True)
+        merged.images = merged.images[~merged.images.index.duplicated(keep='first')]
 
-        self.analyze()
-        self.transformations = {
-            0: {names[0]: copy.deepcopy(self.transformations), names[1]: copy.deepcopy(other.transformations)},
+        merged.analyze()
+        merged.transformations = {
+            0: {
+                names[0]: copy.deepcopy(merged.transformations),
+                names[1]: copy.deepcopy(other.transformations)
+            },
             1: 'Merge datasets'
         }
 
-        return self
+        return merged
     
-    def build(self, target_dir: str, use_symlinks=True):
+    def build(self, target_dir: str, use_links=True):
         """Build defined dataset. Annotation JSON files are exported and images are copied
-        using symlinks.
+        using hard links.
         
         Arguments:
             target_dir {str} -- Target directory for dataset.
+
+        Keyword arguments:
+            use_links {bool} -- Whether to create copies or hard links to image files.
+                (default: {True})
         
         Raises:
             Exception: When target directory is not empty.
         """
 
-        if use_symlinks:
-            cp_fn = os.symlink
+        # Assign copy function based on use_links
+        if use_links:
+            cp_fn = os.link
         else:
             cp_fn = shutil.copy
 
+        # Get unique sets
+        splits = self.images.set.unique()
+
+        # Create/check target directory
         os.makedirs(target_dir, exist_ok=True)
         if len(os.listdir(target_dir)) > 0:
             raise Exception('Target directory is not empty')
         os.makedirs(os.path.join(target_dir, 'annotations'))
-        for split in ['train', 'val']:
+        
+        for split in splits:
             os.makedirs(os.path.join(target_dir, split))
             for source_id in np.unique(self.source_id):
                 os.makedirs(os.path.join(target_dir, split, source_id))
-            
-        instances_train = {
-            'info': self.info,
-            'licenses': self.licenses.to_dict(orient='records'),
-            'categories': self.categories.reset_index().to_dict(orient='records'),
-            'images': []
-        }
-        instances_val = copy.deepcopy(instances_train)
-        instances_train['annotations'] = (
-            self.annotations
-                .loc[self.annotations.set == 'train']
-                .drop(columns=['set', 'name'])
-                .reset_index()
-                .to_dict(orient='records')
-        )
-        instances_val['annotations'] = (
-            self.annotations
-                .loc[self.annotations.set == 'val']
-                .drop(columns=['set', 'name'])
-                .reset_index()
-                .to_dict(orient='records')
-        )
 
-        for i, row in tqdm(self.images.reset_index().iterrows(), desc='Building dataset'):
-            image = row.to_dict()
-            src_path = image['file_name']
-            dest_path = os.path.join(image['id'].split('_')[0], image['file_name'])
-            cp_fn(
-                os.path.abspath(
-                    os.path.join(image['source'],
-                    self.image_paths[self.source.index(image['source'])][image['set']], src_path)
-                ),
-                os.path.join(target_dir, image['set'], dest_path)
+            # Initialize annotation JSON for this split
+            instances_split = {
+                'info': self.info,
+                'licenses': self.licenses.to_dict(orient='records'),
+                'categories': self.categories.reset_index().to_dict(orient='records'),
+                'images': []
+            }
+            instances_split['annotations'] = (
+                self.annotations
+                    .loc[self.annotations.set == split]
+                    .drop(columns=['set', 'name'])
+                    .reset_index()
+                    .to_dict(orient='records')
             )
-            image['file_name'] = dest_path
-            if image['set'] == 'train':
-                instances_train['images'].append(image)
-            else:
-                instances_val['images'].append(image)
 
-        print('Saving annotation JSON files')
-        with open(os.path.join(target_dir, 'annotations/instances_train.json'), 'w') as f:
-            json.dump(instances_train, f)
-        with open(os.path.join(target_dir, 'annotations/instances_val.json'), 'w') as f:
-            json.dump(instances_val, f)
+            images_split = self.images.loc[self.images.set == split].reset_index().iterrows()
+
+            # Copy images
+            for i, row in tqdm(images_split, desc=f'Building {split} dataset'):
+                image = row.dropna().to_dict()
+                source = image['source']
+
+                # Find set location in original dataset (e,g., train, val, or test)
+                source_ind = self.source.index(source)
+                source_set = self.image_paths[source_ind][image.get('orig_set', split)]
+
+                src_path = os.path.abspath(os.path.join(source, source_set, image['file_name']))
+                dest_path = os.path.join(
+                    target_dir,
+                    split,
+                    image['id'].split('_')[0],
+                    image['file_name']
+                )
+
+                # Copy image and add to annotation JSON
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                cp_fn(src_path, dest_path)
+                image['file_name'] = os.path.join(image['id'].split('_')[0], image['file_name'])
+                instances_split['images'].append(image)
+
+            print('Saving annotation JSON files')
+            with open(os.path.join(target_dir, f'annotations/instances_{split}.json'), 'w') as f:
+                json.dump(instances_split, f)
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Build', target_dir)

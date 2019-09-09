@@ -1,10 +1,4 @@
 import os
-import shutil
-from tempfile import TemporaryDirectory
-import json
-from zipfile import ZipFile
-import hashlib, base64
-import wget
 import numpy as np
 import pandas as pd
 
@@ -46,10 +40,9 @@ class OpenImages(Builder):
         # If not already there, get a list of the image sizes
         # This is needed to convert fractional bboxes to pixels
         if not os.path.exists(os.path.join(source, self.img_sizes_val)):
-            print('Collecting image dimensions')
-            find_cmd = (
-                "find {} -name '*.jpg' -exec identify -format '%f,%w,%h\n' {{}} \; | "
-                "pv -lrbt -N 'Collecting image dimensions' > {}"
+            find_cmd = ( 
+                "find {} -type f -printf '\"%P\"' -exec identify -format ',%w,%h\n' {{}} \; | " 
+                "pv -lrbt -N 'Collecting image dimensions' > {}" 
             )
             os.system(find_cmd.format(
                 os.path.join(source, self.image_paths[0]['val']),
@@ -100,12 +93,12 @@ class OpenImages(Builder):
         self.images['source'] = source
 
         # Load and join image dimensions
-        img_sizes = pd.concat((
+        img_dims = pd.concat((
             pd.read_csv(os.path.join(source, self.img_sizes_train), header=None),
             pd.read_csv(os.path.join(source, self.img_sizes_val), header=None)
         ))
-        img_sizes.columns = ['file_name', 'width', 'height']
-        self.images = self.images.merge(img_sizes, how='inner', on='file_name')
+        img_dims.columns = ['file_name', 'width', 'height']
+        self.images = self.images.merge(img_dims, how='inner', on='file_name')
         self.images.set_index('id', inplace=True)
 
         # Build annotations, converting bboxes to pixel values (x, y, w, h)

@@ -1,7 +1,7 @@
 import setuptools, os
 
 PACKAGE_NAME = 'xt-cvdata'
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 AUTHOR = 'Xtract Technologies'
 EMAIL = 'info@xtract.ai'
 DESCRIPTION = 'Utilities for building and working with computer vision datasets'
@@ -23,6 +23,9 @@ setuptools.setup(
     url=GITHUB_URL,
     packages=[
         'xt_cvdata',
+        'xt_cvdata.apis',
+        'xt_cvdata.datasets',
+        'xt_cvdata.transforms'
     ],
     provides=['xt_cvdata'],
     classifiers=[
@@ -30,13 +33,11 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'pycocotools',
-        'wget',
         'numpy',
         'pandas',
         'torch',
         'h5py',
-        'PIL',
+        'pillow',
         'matplotlib',
         'tqdm'
     ],

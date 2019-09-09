@@ -1,12 +1,9 @@
 __all__ = [
+    'apis',
     'transforms',
-    'datasets',
-    'Builder',
-    'COCO'
+    'datasets'
 ]
 
-from .builder import Builder
-from .coco import COCO
-from .open_images import OpenImages
+from . import apis
 from . import transforms
 from . import datasets
