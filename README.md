@@ -31,7 +31,7 @@ See specific help on a dataset class using `help`. E.g., `help(xt_cvdata.apis.CO
 #### Building a dataset
 
 ```python
-from xt_cvdata import COCO, OpenImages
+from xt_cvdata.apis import COCO, OpenImages
 
 # Build an object populated with the COCO image list, categories, and annotations
 coco = COCO('/nasty/data/common/COCO_2017')
@@ -55,7 +55,7 @@ merged.build('./data/new_dataset_dir')
 This package follows pytorch chaining rules, meaning that methods operating on an object modify it in-place, but also return the modified object. The exception is the `merge()` method which does not modify in-place and returns a new merged object. Hence, the above operations can also be completed using:
 
 ```python
-from xt_cvdata import COCO, OpenImages
+from xt_cvdata.apis import COCO, OpenImages
 
 merged = (
     COCO('/nasty/data/common/COCO_2017')
@@ -78,7 +78,7 @@ The current set of dataset operations are:
 * `rename`: rename/combine dataset classes
 * `sample`: sample a specified number of images from the train and validation sets
 * `split`: define the proportion of data in the validation set
-* `merge`: merge two datasets together
+* `merge`: merge two datasets together, returning merged dataset
 * `build`: create the currently defined dataset using either symlinks or by copying images
 
 #### Implementing a new dataset type
