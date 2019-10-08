@@ -2,7 +2,7 @@
   
 ## Description
 
-This repo contains utilities for building and working with computer vision datasets.
+This repo contains utilities for building and working with computer vision datasets, developed by [Xtract AI](https://xtract.ai/).
 
 So far, APIs for the following open-source datasets are included:
 1. COCO 2017 (detection and segmentation): `xt_cvdata.apis.COCO`
@@ -13,6 +13,12 @@ More to come.
 
 ## Installation
 
+From PyPI:
+```bash
+pip install xt-cvdata
+```
+
+From source:
 ```bash
 git clone https://github.com/XtractTech/xt-cvdata.git
 pip install ./xt-cvdata
