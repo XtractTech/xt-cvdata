@@ -2,11 +2,38 @@ __all__ = [
     'Relabel',
     'ToLabel',
     'Squeeze',
-    'OneHot'
+    'OneHot',
+    'MaskCompose'
 ]
 
 import torch 
 import numpy as np
+
+class MaskCompose:
+    """ Custom Composer of transforms used for applying transforms to the img, mask, or both.
+
+    MaskCompose([(Resize(24, 24), 'both'), (ColorJitter(), 'img'), (lambda x: x.long(), 'mask')])
+    """
+    target_options = ['img', 'mask', 'both']
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+        assert all([target in self.target_options for _, target in transforms])
+    
+    def __call__(self, img, mask):
+        for t, target in self.transforms:
+            if target == 'img':
+                img = t(img)
+            elif target == 'mask':
+                mask = t(mask)
+            else:
+                # Concat then transform then split
+                n_chan = img.shape[0]
+                img, mask = t(torch.cat([img, mask], dim=0)).split(n_chan, dim=0)
+        
+        return img, mask
+            
+
 
 class Relabel:
     """ Transform to replace all occurances of `old_label` with `new_label` in a torch.tensor.
