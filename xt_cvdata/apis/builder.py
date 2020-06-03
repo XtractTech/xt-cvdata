@@ -4,6 +4,7 @@ import copy
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pycocotools.coco import maskUtils
 
 
 class Builder(object):
@@ -151,6 +152,9 @@ class Builder(object):
         >>> api.subset(['person', 'cat', 'dog'])
         """
 
+        if isinstance(classes, str):
+            classes = [classes]
+
         for cls in classes:
             if cls not in self.categories.name.values:
                 raise Exception(f'"{cls}" not found in current dataset')
@@ -261,7 +265,7 @@ class Builder(object):
 
         return self
 
-    def split(self, sets: list, p: list):
+    def split(self, sets: list, p: list, seed: int=None):
         """Apply a random split to dataset images. This will redistribute the existing images
         between the specified splits (train, val, test, etc.).
         
@@ -271,6 +275,8 @@ class Builder(object):
             sets {list} -- List of names for image sets (e.g., ['train', 'val', 'test']).
             p {list} -- List of proportions to assign to each set in `sets`. Should sum to 1.
         
+        Keywork Arguments:
+            seed {int} -- Can supply an int to be used as the random seed. (default: {None})
         Returns:
             Builder -- Modified dataset builder object.
 
@@ -284,6 +290,8 @@ class Builder(object):
             self.images['orig_set'] = self.images.set
 
         # Apply random split to images
+        if seed:
+            np.random.seed(seed)
         self.images.set = np.random.choice(sets, p=p, size=len(self.images))
 
         # Join new image split to annotations
@@ -451,3 +459,30 @@ class Builder(object):
 
         self.analyze()
         self.transformations[len(self.transformations)] = ('Build', target_dir)
+    
+    def annToRLE(self, ann):
+        """
+        Convert annotation which can be polygons, uncompressed RLE to RLE.
+        :return: binary mask (numpy 2D array)
+        """
+        im = self.images.xs(ann.image_id)
+        h, w = im.height, im.width
+        segm = ann.segmentation
+        if type(segm) == list:
+            # polygon -- a single object might consist of multiple parts
+            # we merge all parts into one mask rle code
+            rles = maskUtils.frPyObjects(segm, h, w)
+            rle = maskUtils.merge(rles)
+        elif type(segm['counts']) == list:
+            # uncompressed RLE
+            rle = maskUtils.frPyObjects(segm, h, w)
+        else:
+            # rle
+            rle = ann['segmentation']
+        return rle
+
+    def annToMask(self, ann):
+        rle = self.annToRLE(ann)
+        m = maskUtils.decode(rle)
+        
+        return m
