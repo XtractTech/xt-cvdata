@@ -36,9 +36,11 @@ setuptools.setup(
         'numpy',
         'pandas',
         'torch',
+        'torchvision',
         'h5py',
         'pillow',
         'matplotlib',
-        'tqdm'
+        'tqdm',
+        'pycocotools'
     ],
 )
