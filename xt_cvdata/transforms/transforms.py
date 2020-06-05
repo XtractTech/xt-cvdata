@@ -29,8 +29,7 @@ class MaskCompose:
             else:
                 # Concat then transform then split
                 img, mask = t(img, mask)
-
-        #TODO Try using albumentations
+                
         return img, mask
 
 
