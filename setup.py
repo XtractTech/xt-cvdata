@@ -1,7 +1,7 @@
 import setuptools, os
 
 PACKAGE_NAME = 'xt-cvdata'
-VERSION = '0.4.0'
+VERSION = '0.5.0'
 AUTHOR = 'Xtract AI'
 EMAIL = 'info@xtract.ai'
 DESCRIPTION = 'Utilities for building and working with computer vision datasets'
@@ -36,9 +36,11 @@ setuptools.setup(
         'numpy',
         'pandas',
         'torch',
+        'torchvision',
         'h5py',
         'pillow',
         'matplotlib',
-        'tqdm'
+        'tqdm',
+        'pycocotools'
     ],
 )
