@@ -29,7 +29,7 @@ class MaskCompose:
             else:
                 # Concat then transform then split
                 img, mask = t(img, mask)
-                
+
         return img, mask
 
 
@@ -91,7 +91,7 @@ class OneHot:
         return target
 
 class RandomResizedCropSeg:
-    """Crop the given PIL Image to random size and aspect ratio.
+    """Crop the given PIL Image and mask to random size and aspect ratio.
 
     A crop of random size (default: of 0.08 to 1.0) of the original size and a random
     aspect ratio (default: of 3/4 to 4/3) of the original aspect ratio is made. This crop
@@ -176,7 +176,7 @@ class RandomResizedCropSeg:
         )
 
 class RandomHorizontalFlipSeg(object):
-    """Horizontally flip the given PIL Image randomly with a given probability.
+    """Horizontally flip the given PIL Image and mask randomly with a given probability.
 
     Args:
         p (float): probability of the image being flipped. Default value is 0.5
