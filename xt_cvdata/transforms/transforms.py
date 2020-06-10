@@ -27,8 +27,11 @@ class MaskCompose:
             elif target == 'mask':
                 mask = t(mask)
             else:
-                # Concat then transform then split
-                img, mask = t(img, mask)
+                # Concat Mask, Transform, Split
+                img.putalpha(mask)
+                img = t(img)
+                red, green, blue, mask = img.split()
+                img = Image.merge('RGB', [red, green, blue])
 
         return img, mask
 
