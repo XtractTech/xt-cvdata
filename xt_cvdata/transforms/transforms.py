@@ -3,36 +3,102 @@ import torch
 import numpy as np
 from PIL import Image
 from torchvision.transforms import functional as F
+from albumentations.core.transforms_interface import BasicTransform as ATransform
+
 import random
 
-__all__ = ['Relabel', 'ToLabel', 'Squeeze', 'OneHot', 'MaskCompose', 
-    'RandomHorizontalFlipSeg', 'RandomResizedCropSeg'
+__all__ = ['Relabel', 'ToLabel', 'Squeeze', 'OneHot', 'MaskCompose', 'XTCompose'
 ]
 
-class MaskCompose:
+class XTCompose:
     """ Custom Composer of transforms used for applying transforms to the img, mask, or both.
+    Can use both Albuentations transforms, or any transform on PIL images
 
-    MaskCompose([(Resize(24, 24), 'both'), (ColorJitter(), 'img'), (lambda x: x.long(), 'mask')])
+    Basic Usage:
+    >>> transforms = XTCompose([
+        GaussianBlur(),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor()
+    ])
+    Advanced Usage:
+    You can supply the transforms as a tuple if you want to use it for segmentation
+    >>> transforms = MaskCompose([
+        (Resize(24, 24), 'both'), 
+        (ColorJitter(), 'img'), 
+        (lambda x: x.long(), 'mask')]
+    )
     """
     target_options = ['img', 'mask', 'both']
     def __init__(self, transforms):
         self.transforms = transforms
 
-        assert all([target in self.target_options for _, target in transforms])
+        assert all([
+            t_target[1] in self.target_options 
+            for t_target in transforms 
+            if isinstance(t_target, tuple)
+        ])
     
-    def __call__(self, img, mask):
-        for t, target in self.transforms:
-            if target == 'img':
-                img = t(img)
-            elif target == 'mask':
-                mask = t(mask)
-            else:
-                # Concat Mask, Transform, Split
-                img.putalpha(mask)
-                img = t(img)
-                red, green, blue, mask = img.split()
-                img = Image.merge('RGB', [red, green, blue])
+    @staticmethod 
+    def convert_to_proper_type(img, to_numpy):
+        """Converts a PIL or ndarray to the proper type before a transformation
 
+        Args:
+            img (PIL.Image or np.ndarray): The image to be converted
+            to_numpy (bool): Convert to np array or to PIL Image
+
+        Returns:
+            PIL.Image or np.ndarray: The converted image
+        """
+
+        if to_numpy:
+            if not isinstance(img, np.ndarray):
+                img = np.asarray(img)
+        else:
+            if isinstance(img, np.ndarray):
+                img = Image.fromarray(img)
+
+        return img
+
+
+    def __call__(self, img, mask=None):
+        for t_target in self.transforms:
+            if isinstance(t_target, tuple):
+                t, target = t_target
+            else: 
+                t = t_target
+                target = 'img'
+
+            is_album = isinstance(t, ATransform)
+
+            if target == 'img':
+                img = self.convert_to_proper_type(img, is_album)
+                if is_album:
+                    img = t(image=img)['image']
+                else:
+                    img = t(img)
+            elif target == 'mask':
+                mask = self.convert_to_proper_type(mask, is_album)
+                if is_album:
+                    mask = t(image=mask)['image']
+                else:
+                    mask = t(mask)
+            else:
+                img = self.convert_to_proper_type(img, is_album)
+                mask = self.convert_to_proper_type(mask, is_album)
+                if is_album:
+                    augmented = t(image=img, mask=mask)
+                    img = augmented['image']
+                    mask = augmented['mask']
+                else:
+                    # Concat Mask, Transform, Split
+                    img.putalpha(mask)
+                    img = t(img)
+                    red, green, blue, mask = img.split()
+                    img = Image.merge('RGB', [red, green, blue])
+
+        if mask is None:
+            return img
+        
         return img, mask
 
 
@@ -92,3 +158,8 @@ class OneHot:
         target = torch.autograd.Variable(target)
             
         return target
+
+
+
+# For backwards compatability
+MaskCompose = XTCompose
