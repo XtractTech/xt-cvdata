@@ -1,7 +1,7 @@
 import setuptools, os
 
 PACKAGE_NAME = 'xt-cvdata'
-VERSION = '0.6.1'
+VERSION = '0.7.0'
 AUTHOR = 'Xtract AI'
 EMAIL = 'info@xtract.ai'
 DESCRIPTION = 'Utilities for building and working with computer vision datasets'
