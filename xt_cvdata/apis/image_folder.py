@@ -14,7 +14,7 @@ class ImageFolderBuilder(Builder):
     image_sizes = 'image_sizes.csv'
 
     def __init__(self, source, category_transform=None):
-        """Image Folder builder for classificatno.
+        """Image Folder builder for classification.
         
         Arguments:
             source {str} -- Local location of full dataset. Folder structure should
