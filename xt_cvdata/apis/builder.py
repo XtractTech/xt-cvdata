@@ -127,6 +127,26 @@ class Builder(object):
             self.class_distribution = self.class_distribution.join(set_dist, how='outer')
         self.class_distribution = self.class_distribution.fillna(0)
     
+    def trim(self, min_prop: float):
+        """Trim classes below min_prop annotations
+
+        Arguments:
+            min_prop {float} -- Minimum proportion of annotations a class must have in the training set
+        
+        Returns:
+            Builder -- Modified dataset builder object.
+        
+        Example:
+        >>> api = Builder(<source>)
+        >>> api.trim(min_prop=.05)
+        """
+
+        # Find classes to keep, call subset
+        classes_to_keep = list(self.class_distribution[self.class_distribution.train_prop >= min_prop].index)
+        
+        return self.subset(classes_to_keep)
+
+
     def subset(self, classes: list, keep_images: bool=False, keep_intersecting: bool=False):
         """Subset object categories.
         
