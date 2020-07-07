@@ -13,7 +13,7 @@ __all__ = ['Relabel', 'ToLabel', 'Squeeze', 'OneHot', 'MaskCompose', 'XTCompose'
 class XTCompose:
     """ Custom Composer of transforms used for applying transforms to the img, mask, or both.
     Can use both Albuentations transforms, or any transform on PIL images.
-    Note: Images must be RGB and Mask must be A
+    Note: Images must be RGB and Mask must be a single channel image
 
     Basic Usage:
     >>> transforms = XTCompose([
