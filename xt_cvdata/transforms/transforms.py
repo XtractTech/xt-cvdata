@@ -12,7 +12,8 @@ __all__ = ['Relabel', 'ToLabel', 'Squeeze', 'OneHot', 'MaskCompose', 'XTCompose'
 
 class XTCompose:
     """ Custom Composer of transforms used for applying transforms to the img, mask, or both.
-    Can use both Albuentations transforms, or any transform on PIL images
+    Can use both Albuentations transforms, or any transform on PIL images.
+    Note: Images must be RGB and Mask must be a single channel image
 
     Basic Usage:
     >>> transforms = XTCompose([
@@ -39,23 +40,21 @@ class XTCompose:
         ])
     
     @staticmethod 
-    def convert_to_proper_type(img, to_numpy):
-        """Converts a PIL or ndarray to the proper type before a transformation
+    def convert_to_proper_type(img, is_album):
+        """If albumentations transform, converts image to numpy format.
+        Note: This function will leave the type as is if it is not an album transform.
 
         Args:
             img (PIL.Image or np.ndarray): The image to be converted
-            to_numpy (bool): Convert to np array or to PIL Image
+            is_album (bool): If the next transformation is albumentations
 
         Returns:
             PIL.Image or np.ndarray: The converted image
         """
 
-        if to_numpy:
+        if is_album:
             if not isinstance(img, np.ndarray):
                 img = np.asarray(img)
-        else:
-            if isinstance(img, np.ndarray):
-                img = Image.fromarray(img)
 
         return img
 
@@ -91,10 +90,22 @@ class XTCompose:
                     mask = augmented['mask']
                 else:
                     # Concat Mask, Transform, Split
-                    img.putalpha(mask)
-                    img = t(img)
-                    red, green, blue, mask = img.split()
-                    img = Image.merge('RGB', [red, green, blue])
+                    if isinstance(img, Image.Image):
+                        if not isinstance(mask, Image.Image):
+                            mask = Image.fromarray(mask)
+                        img.putalpha(mask)
+                        img = t(img)
+                        red, green, blue, mask = img.split()
+                        img = Image.merge('RGB', [red, green, blue])
+                    elif isinstance(img, np.ndarray):
+                        if not isinstance(mask, np.ndarray):
+                            mask = np.asarray(mask)
+                        if mask.ndim == 2:
+                            # Unsqueeze
+                            mask = np.expand_dims(mask, axis=-1)
+                        img_mask = np.concatenate([img, mask], axis=-1)
+                        img_mask = t(img_mask)
+                        img, mask = np.split(img_mask, [3], axis=-1)
 
         if mask is None:
             return img
