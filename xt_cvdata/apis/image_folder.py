@@ -53,9 +53,6 @@ class ImageFolderBuilder(Builder):
         categories, unique_inds = np.unique(categories, return_index=True)
         supercategories = np.array(supercategories)[unique_inds]
 
-
-
-
         self.categories = pd.DataFrame(categories, columns=['name'])
         self.categories['supercategory'] = supercategories
         self.categories.index.name = 'index'
