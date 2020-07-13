@@ -50,7 +50,11 @@ class ImageFolderBuilder(Builder):
             categories, supercategories = category_transform(categories)
         else:
             categories, supercategories = _default_category_transform(categories)
-        categories = np.unique(categories)
+        categories, unique_inds = np.unique(categories, return_index=True)
+        supercategories = np.array(supercategories)[unique_inds]
+
+
+
 
         self.categories = pd.DataFrame(categories, columns=['name'])
         self.categories['supercategory'] = supercategories
