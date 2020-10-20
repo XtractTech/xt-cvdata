@@ -67,6 +67,11 @@ class XTCompose:
                 t = t_target
                 target = 'img'
 
+            if mask is None and target == 'mask':
+                continue
+            if mask is None and target == 'both':
+                target = 'img'
+
             is_album = isinstance(t, ATransform)
 
             if target == 'img':
